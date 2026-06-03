@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { authenticate } from "../middleware/auth";
+import { todoSchema } from "../schemas/todo.schema";
 
 const router = Router();
 
@@ -18,14 +19,21 @@ router.get("/", authenticate, async (req, res) => {
 });
 
 router.post("/", authenticate, async (req, res) => {
+  const validation = todoSchema.safeParse(req.body);
+
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error.issues });
+  }
+
   try {
-    const { title, description } = req.body;
+    const { title, description } = validation.data;
+
     if (!title) return res.status(400).json({ error: "Title is required" });
 
     const todo = await prisma.todo.create({
       data: {
         title,
-        description,
+        description: description || "",
         userId: (req as any).user.id,
         status: "todo",
       },
@@ -37,13 +45,16 @@ router.post("/", authenticate, async (req, res) => {
 });
 
 router.put("/:id", authenticate, async (req, res) => {
+  const validation = todoSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error.issues });
+  }
   try {
-    const { title, description, status } = req.body;
     const todoId = parseInt(req.params.id as string);
 
     const updated = await prisma.todo.update({
       where: { id: todoId, userId: (req as any).user.id },
-      data: { title, description, status },
+      data: validation.data,
     });
     res
       .status(200)

@@ -1,13 +1,23 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { hashPassword, comparePasswords } from "../utils/hash";
+import { authSchema } from "../schemas/todo.schema";
 import jwt from "jsonwebtoken";
 
 const router = Router();
 const JWT_SECRET = "test_key_123";
 
 router.post("/register", async (req, res) => {
-  const { email, password } = req.body;
+  const validation = authSchema.safeParse(req.body);
+
+  if (!validation.success) {
+    return res.status(400).json({
+      error: "Validation failed",
+    });
+  }
+
+  const { email, password } = validation.data;
+
   const hashedPassword = await hashPassword(password);
 
   try {
@@ -21,7 +31,15 @@ router.post("/register", async (req, res) => {
 });
 
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const validation = authSchema.safeParse(req.body);
+
+  if (!validation.success) {
+    return res.status(400).json({
+      error: "Validation failed",
+    });
+  }
+
+  const { email, password } = validation.data;
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user || !(await comparePasswords(password, user.password))) {
